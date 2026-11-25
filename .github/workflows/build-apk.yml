@@ -1,0 +1,40 @@
+name: Build TV Home APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Get Android 7 sources
+        shell: bash
+        run: |
+          git init
+          git fetch https://github.com/mihirgupta0900/tv-home.git refs/pull/30/head
+          git checkout --detach 64723904eeecbdcc4764bc08aa56aab3107c3358
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Android SDK packages
+        shell: pwsh
+        run: sdkmanager.bat "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Build APK
+        shell: bash
+        run: |
+          python -m venv tools/venv
+          bash launcher/build-windows.sh --build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tv-home-android7
+          path: launcher/build/tvhome.apk
+          if-no-files-found: error
