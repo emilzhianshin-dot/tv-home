@@ -23,18 +23,10 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install Android SDK packages
+            - name: Install Android SDK packages
         shell: pwsh
-        run: sdkmanager.bat "platforms;android-36" "build-tools;36.0.0"
-
-      - name: Build APK
-        shell: bash
         run: |
-          python -m venv tools/venv
-          bash launcher/build-windows.sh --build
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: tv-home-android7
-          path: launcher/build/tvhome.apk
-          if-no-files-found: error
+          $sdk = $env:ANDROID_HOME
+          $manager = Get-ChildItem "$sdk\cmdline-tools" -Filter sdkmanager.bat -Recurse | Select-Object -First 1
+          if (-not $manager) { throw "sdkmanager.bat not found in $sdk" }
+          & $manager.FullName "--sdk_root=$sdk" "platforms;android-36" "build-tools;36.0.0"
