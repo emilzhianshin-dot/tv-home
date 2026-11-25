@@ -31,6 +31,60 @@ jobs:
           if (-not $manager) { throw "sdkmanager.bat not found in $sdk" }
           & $manager.FullName "--sdk_root=$sdk" "platforms;android-36" "build-tools;36.0.0"
 
+      - name: Apply KIVI launcher fixes
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          activity = Path("launcher/src/com/mihir/tvhome/MainActivity.java")
+          source = activity.read_text(encoding="utf-8")
+          translations = {
+              '"ALL APPS"': '"ВСЕ ПРИЛОЖЕНИЯ"',
+              '"Inputs"': '"Входы"',
+              '"Settings"': '"Настройки"',
+              '"Live TV"': '"Эфирное ТВ"',
+              '"All sources…"': '"Все источники…"',
+              "Asosiy qatorga qo'shish": "Добавить в избранное",
+              "Chapga surish": "Сдвинуть влево",
+              "O'ngga surish": "Сдвинуть вправо",
+              "Asosiy qatordan olish": "Убрать из избранного",
+              "Ilovani o'chirish": "Удалить приложение",
+              "GOOD NIGHT": "ДОБРОЙ НОЧИ",
+              "GOOD MORNING": "ДОБРОЕ УТРО",
+              "GOOD AFTERNOON": "ДОБРЫЙ ДЕНЬ",
+              "GOOD EVENING": "ДОБРЫЙ ВЕЧЕР",
+              '"Offline"': '"Нет сети"',
+          }
+          for original, translated in translations.items():
+              if original not in source:
+                  raise SystemExit(f"Missing text: {original}")
+              source = source.replace(original, translated)
+
+          source = source.replace(
+              'date.setText(new SimpleDateFormat("EEEE  d MMMM", Locale.getDefault()).format(now.getTime()).toUpperCase(Locale.getDefault()));',
+              'Locale russian = new Locale("ru", "RU");\n        date.setText(new SimpleDateFormat("EEEE  d MMMM", russian).format(now.getTime()).toUpperCase(russian));',
+          )
+          source = source.replace("i == dock.size() - 1 ?", "i == Math.max(dock.size(), cols) - 1 ?")
+          source = source.replace("        LinearLayout row = null;", """        if (!dock.isEmpty()) {
+                      for (int i = dock.size(); i < cols; i++) {
+                          LinearLayout.LayoutParams slot = new LinearLayout.LayoutParams(0, 1, 1f);
+                          slot.setMargins(dp(10), 0, i == cols - 1 ? 0 : dp(10), 0);
+                          dockRow.addView(new View(this), slot);
+                      }
+                  }
+                  LinearLayout row = null;""")
+          source = source.replace("i < dockRow.getChildCount()", "i < dockCards.size()")
+          source = source.replace("View t = dockRow.getChildAt(i)", "View t = dockCards.get(i)")
+          activity.write_text(source, encoding="utf-8")
+
+          build = Path("launcher/build-windows.sh")
+          source = build.read_text(encoding="utf-8")
+          if "javac -nowarn" not in source:
+              raise SystemExit("Unexpected javac command")
+          build.write_text(source.replace("javac -nowarn", "javac -encoding UTF-8 -nowarn"), encoding="utf-8")
+          PY
+
       - name: Build APK
         shell: bash
         run: |
@@ -39,6 +93,6 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: tv-home-android7
+          name: tv-home-kivi-ru
           path: launcher/build/tvhome.apk
           if-no-files-found: error
